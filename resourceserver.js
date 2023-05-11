@@ -6,9 +6,9 @@ let {authenticateToken}=require('./authenticationserver.js')
 const app=express();
 require('dotenv').config();
 app.use(express.json());
-
+app.use(authenticateToken);
 //Route to receive all the orders of user
-app.get('/orders',authenticateToken,async (req,res)=>{
+app.get('/orders',async (req,res)=>{
     let user=await User.findOne({where:{
         userid:res.userid
     }})
@@ -17,7 +17,7 @@ app.get('/orders',authenticateToken,async (req,res)=>{
     res.send(orderdetails);
 });
 //Route to get specific order
-app.get('/order/:orderid',authenticateToken,async (req,res)=>{
+app.get('/order/:orderid',async (req,res)=>{
     let orderid=req.params.orderid;
     let orderdetail;
     try{
@@ -26,7 +26,7 @@ app.get('/order/:orderid',authenticateToken,async (req,res)=>{
     res.status(200).send(orderdetail);
 });
 //Route to create order
-app.post('/order',authenticateToken,async (req,res)=>{
+app.post('/order',async (req,res)=>{
     try{
         let schema=joi.object({
             product:joi.string().required(),
@@ -46,7 +46,7 @@ app.post('/order',authenticateToken,async (req,res)=>{
     }
 });
 //Route to update order datails
-app.put('/order/:orderid',authenticateToken,async (req,res)=>{
+app.put('/order/:orderid',async (req,res)=>{
     try{
         let orderid=req.params.orderid;
         let userid=res.userid;
@@ -66,7 +66,7 @@ app.put('/order/:orderid',authenticateToken,async (req,res)=>{
     }
 });
 //Route to delete order
-app.delete('/order/:orderid',authenticateToken,async (req,res)=>{
+app.delete('/order/:orderid',async (req,res)=>{
         let orderid=req.params.orderid;   
         await Order.destroy({where:{userid:res.userid,orderid:orderid}})
         res.status(200).send('Deletion success');
