@@ -5,7 +5,7 @@ const functions=require('./functions');
 router.post('/login',async(req,res)=>{
     await functions.adminLogin(req,res);   
 })
-router.get('/',(req,res)=>{res.send('admin portal')})
+router.get('/',(req,res)=>{res.send('admin portal')});
 
 const {router:orderRouter}=require('./admin/order.js');
 router.use('/order',orderRouter);
