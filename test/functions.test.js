@@ -7,7 +7,6 @@ const testclient=createClient();
 testclient.connect()
 .then(()=>console.log('test client connected'))
 const {Admin,User,Order}=require('../models');
-const { before } = require('mocha');
 describe('adminLogin',()=>{
     let createdAdmin;
     beforeEach(async ()=>{
@@ -22,7 +21,7 @@ describe('adminLogin',()=>{
     it('test with valid admin details',async()=>{
         let req={
             body:{
-                adminname:createdAdmin.adminanme,
+                adminname:createdAdmin.adminname,
                 password:createdAdmin.password
             }
         };
@@ -36,6 +35,10 @@ describe('adminLogin',()=>{
                 expect(this.response.sessionID).to.be.not.null;
                
             },
+            send:function(data){
+                this.data=data;
+                return this;
+            }
         };
         await functions.adminLogin(req,res);
 
