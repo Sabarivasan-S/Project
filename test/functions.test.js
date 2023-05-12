@@ -7,12 +7,23 @@ const testclient=createClient();
 testclient.connect()
 .then(()=>console.log('test client connected'))
 const {Admin,User,Order}=require('../models');
+const { before } = require('mocha');
 describe('adminLogin',()=>{
+    let createdAdmin;
+    beforeEach(async ()=>{
+         createdAdmin=await Admin.create({
+            adminname:'testadmin',
+            password:'testpassword'
+        })
+    })
+    afterEach(async()=>{
+        await createdAdmin.destroy();
+    })
     it('test with valid admin details',async()=>{
         let req={
             body:{
-                adminname:'primaryadmin',
-                password:'adminpassword'
+                adminname:createdAdmin.adminanme,
+                password:createdAdmin.password
             }
         };
         let res={
@@ -51,7 +62,7 @@ describe('adminLogin',()=>{
     it('test with invalid password',async ()=>{
         let req={
             body:{
-                adminname:'primaryadmin',
+                adminname:createdAdmin.password,
                 password:null
             }
         }
@@ -70,10 +81,15 @@ describe('adminLogin',()=>{
     
 })
 describe('adminLogout',()=>{
+    let testsessionId;
+    beforeEach(async ()=>{
+        testsessionId='test';
+        await testclient.set(testsessionId,'testadminname');
+    })
+    afterEach(()=>{
+        testclient.del(testsessionId);
+    })
     it('test with valid sessionId',async ()=>{
-        //creation of sessionID
-        let testsessionId='test';
-        testclient.set(testsessionId,'testadminname');
         let req={
             headers:{
                 authorization: `Bearer ${testsessionId}`
@@ -112,11 +128,19 @@ describe('adminLogout',()=>{
 })
 
 describe('tokenAuthorization',()=>{
+    let testsessionId;
+    let nextstub;
+    beforeEach(async ()=>{
+        testsessionId='test';
+        await testclient.set(testsessionId,'testadminname');
+        nextstub=sinon.stub();
+    })
+    afterEach(async ()=>{
+        await testclient.del(testsessionId);
+        sinon.restore();
+    })
     it('test with valid sessionId',async ()=>{
-        //creation of sessionID
-        let testsessionId='test';
-        testclient.set(testsessionId,'testadminname');
-        let nextstub=sinon.stub();
+        
         let req={
             headers:{
                 authorization: `Bearer ${testsessionId}`
@@ -125,8 +149,7 @@ describe('tokenAuthorization',()=>{
         let res={}
         await functions.tokenAuthorization(req,res,nextstub);
         expect(nextstub.calledOnce).to.be.true;
-        sinon.restore();
-        testclient.del(testsessionId);
+        
     })
     it('test with invalid sessionID',async ()=>{
         let req={
@@ -141,14 +164,26 @@ describe('tokenAuthorization',()=>{
             },
             send:function(response){
                 this.response=response;
-                expect(this.statuscode).to.equal(400)
+                expect(this.statuscode).to.equal(400);
+                expect(nextstub.called).to.be.false;
             }
         }
-        await functions.adminLogout(req,res);
+        await functions.adminLogout(req,res,nextstub);
     })
 
 })
 describe('getAllOrders',()=>{
+    let createdOrder;
+    beforeEach(async()=>{
+        createdOrder=await Order.create({
+            userid:1,
+            product:'testproduct',
+            price:100
+        })
+    })
+    afterEach(async()=>{
+        await createdOrder.destroy();
+    })
     it('test has no other variation',async ()=>{
         let res={
             json:function(response){
@@ -160,16 +195,28 @@ describe('getAllOrders',()=>{
     })
 })
 describe('getSpecificOrder',()=>{
+    let createdOrder
+    beforeEach(async()=>{
+        createdOrder=await Order.create({
+            userid:1,
+            product:'testproduct',
+            price:100
+        })
+    })
+    afterEach(async()=>{
+        await createdOrder.destroy();
+    })
     it('test with valid order id',async ()=>{
         let req={
             params:{
-                orderid:1
+                orderid:createdOrder.orderid
             }
         }
         let res={
             send:function(response){
                 this.response=response;
                 expect(this.response).to.be.an('array');
+                expect(this.response.orderid==createdOrder.orderdid).to.be.true;
             }
         }
         await functions.getSpecificOrder(req,res);
@@ -190,13 +237,18 @@ describe('getSpecificOrder',()=>{
     })
 })
 describe('deleteSpecificOrder',()=>{
-    it('test with valid orderid',async()=>{
-        //creation of order
-        let createdOrder=await Order.create({
+    let createdOrder;
+    beforeEach(async()=>{
+        createdOrder=await Order.create({
             userid:1,
-            product:"item1",
+            product:'testproduct',
             price:100
         })
+    })
+    afterEach(async()=>{
+        await createdOrder.destroy();
+    })
+    it('test with valid orderid',async()=>{
         let req={
             params:{
                 orderid:createdOrder.orderid
@@ -229,32 +281,64 @@ describe('deleteSpecificOrder',()=>{
             }
         }
         await functions.deleteSpecificOrder(req,res);
+        let checkDelete=await Order.findOne({where:{orderid:createdOrder.orderid}});
+        expect(checkDelete).to.be.not.null;
     })
 
 })
 
 describe('getAllUsers',()=>{
-    it('has no variation',async()=>{
+    let createdUser;
+    beforeEach(async()=>{
+        createdUser=await User.create({
+              username: 'testusername',
+              password: 'testpassword',
+              email: 'test@hotmail.com',
+              phone: '4587302939',
+              address: 'testaddress'
+              
+        })
+    })
+    afterEach(async()=>{
+        await createdUser.destroy();
+    })
+    it('test to receive all users',async()=>{
         let req={}
         let res={
             send:function(response){
                 this.response=response;
                 expect(this.response).to.be.an('array');
+                expect(this.response.length).to.not.equal(0);
             }
         }
         await functions.getAllUsers(req,res);
     })
 })
 describe('getSpecificUser',()=>{
+    let createdUser;
+    beforeEach(async()=>{
+      createdUser=await User.create({
+              username: 'testusername',
+              password: 'testpassword',
+              email: 'test@hotmail.com',
+              phone: '4587302939',
+              address: 'testaddress'
+              
+        })
+    })
+    afterEach(async()=>{
+        await createdUser.destroy();
+    })
     it('test with valid user ID',async()=>{
         let req={
             params:{
-                userid:1
+                userid:createdUser.userid
             }
         }
         let res={
             send:function(response){
                 expect(response).to.be.an('array');
+                expect(response[0].userid).to.equal(createdUser.userid);
             }
         }
         await functions.getSpecificUser(req,res);
@@ -280,6 +364,20 @@ describe('getSpecificUser',()=>{
 })
 
 describe('updateUser',()=>{
+    let createdUser;
+    beforeEach(async()=>{
+        createdUser=await User.create({
+              username: 'testusername',
+              password: 'testpassword',
+              email: 'test@hotmail.com',
+              phone: '4587302939',
+              address: 'testaddress'
+              
+        })
+    })
+    afterEach(async()=>{
+        await createdUser.destroy();
+    })
     it('test with invalid userID',async()=>{
         let req={
             params:{
@@ -304,15 +402,9 @@ describe('updateUser',()=>{
             }
         }
         await functions.updateUser(req,res);
+        
     })
     it('test with valid userID',async()=>{
-        let createdUser=await User.create({
-            username:"name1",
-        password:"password1",
-        email:"name1@myweb.com",
-        phone:"1234567890",
-        address:"address of name1"
-        })
         let req={
             params:{
                 userid:createdUser.userid
@@ -336,11 +428,36 @@ describe('updateUser',()=>{
             }
         }
         await functions.updateUser(req,res);
-        await User.destroy({where:{userid:createdUser.userid}});
+        let updatedUser=await User.findOne({where:{userid:createdUser.userid}});
+        expect(updatedUser.email).to.equal('name2@myweb.com');
+        expect(updatedUser.phone).to.equal('1234567890');
+        expect(updatedUser.address).to.equal('address of name2');
     })
 })
 
 describe('getUserOrder',()=>{
+    let createdUser;
+    let createdOrder
+    beforeEach(async()=>{
+         createdUser=await User.create({
+            username: 'testusername',
+            password: 'testpassword',
+            email: 'test@hotmail.com',
+            phone: '4587302939',
+            address: 'testaddress'
+            
+      });
+      createdOrder=await Order.create({
+        product:'mobile',
+        price:6000
+      })
+      await createdUser.addOrder(createdOrder);
+    })
+    afterEach(async()=>{
+       await createdUser.removeOrder(createdOrder);
+        await createdOrder.destroy();
+        await createdUser.destroy();
+    })
     it('test with valid user',async()=>{
         let req={
             params:{userid:1}
@@ -370,15 +487,21 @@ describe('getUserOrder',()=>{
     })
 })
 describe('deleteSpecificUser',()=>{
-    it('delete a valid user',async()=>{
-        //create user
-        let createdUser=await User.create({
-            username:"name1",
-        password:"password1",
-        email:"name1@myweb.com",
-        phone:"1234567890",
-        address:"address of name1"
+    let createdUser;
+    beforeEach(async()=>{
+        createdUser=await User.create({
+              username: 'testusername',
+              password: 'testpassword',
+              email: 'test@hotmail.com',
+              phone: '4587302939',
+              address: 'testaddress'
+              
         })
+    })
+    afterEach(async()=>{
+        await createdUser.destroy();
+    })
+    it('delete a valid user',async()=>{
         let req={
             params:{userid:createdUser.userid}
         }
@@ -388,7 +511,8 @@ describe('deleteSpecificUser',()=>{
             }
         }
         await functions.deleteSpecificUser(req,res);
-        await User.destroy({where:{userid:createdUser.userid}});
+        let deletedUser=await User.findOne({where:{userid:createdUser.userid}});
+        expect(deletedUser).to.be.null;
     })
     it('delete a invalid user',async()=>{
         let req={
@@ -405,5 +529,6 @@ describe('deleteSpecificUser',()=>{
             }
         }
         await functions.deleteSpecificUser(req,res);
+
     })
 })
